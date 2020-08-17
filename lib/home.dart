@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'coin_data.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io';
 
 class Home extends StatefulWidget {
   @override
@@ -6,6 +9,31 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  String selectedCurrency = 'HRK';
+
+  CupertinoPicker iOSpicker() {
+    return CupertinoPicker(
+      backgroundColor: Colors.lightBlue,
+      children: currenciesList.map((e) => Text(e)).toList(),
+      itemExtent: 32.0,
+      onSelectedItemChanged: (index) =>
+          selectedCurrency = currenciesList[index],
+    );
+  }
+
+  DropdownButton androidDropdown() {
+    return DropdownButton(
+      value: selectedCurrency,
+      items: currenciesList
+          .map((e) => DropdownMenuItem(
+                child: Text(e),
+                value: e,
+              ))
+          .toList(),
+      onChanged: (value) => setState(() => selectedCurrency = value),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var mediaQuery = MediaQuery.of(context);
@@ -52,7 +80,7 @@ class _HomeState extends State<Home> {
             height: mediaQuery.size.height / 7,
             padding: EdgeInsets.only(bottom: 30.0),
             color: Colors.lightBlue,
-            child: Text("he"),
+            child: Platform.isIOS ? iOSpicker() : androidDropdown(),
           ),
         ],
       ),
