@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'price_card.dart';
 
 var header = {"X-CoinAPI-Key": DotEnv().env["API_KEY"]};
 
@@ -15,14 +16,64 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   String selectedCurrency = 'USD';
+  List<String> rates = [];
+  List<String> crypto = [];
+  dynamic prices;
 
-  Future<List<dynamic>> getCurrentPrice() async {
+  Future<dynamic> getCurrentPrice() async {
+    rates.clear();
+    crypto.clear();
+
     http.Response response = await http.get(
-        'https://rest.coinapi.io/v1/exchangerate/$selectedCurrency?invert=false&filter_asset_id=${cryptoList.join(',')}',
+        'https://rest.coinapi.io/v1/exchangerate/$selectedCurrency?invert=true&filter_asset_id=${cryptoList.join(',')}',
         headers: header);
 
-    var prices = jsonDecode(response.body)['rates'];
+    prices = jsonDecode(response.body)['rates'];
     return prices;
+  }
+
+  void updateUI() {
+    setState(() {
+      if (prices == null) {
+        rates = ["?", "?", "?"];
+        crypto = cryptoList;
+      } else {
+        for (Map<String, dynamic> price in prices) {
+          rates.add(price['rate']);
+          crypto.add(price['asset_id_quote']);
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var mediaQuery = MediaQuery.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("🤑 Coin Ticker"),
+        centerTitle: true,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          PriceCard(
+            cryptoCurrency: crypto.isEmpty ? cryptoList[0] : crypto[0],
+            fiat: selectedCurrency,
+            price: '?',
+          ),
+          Container(
+            alignment: Alignment.center,
+            height: mediaQuery.size.height / 7,
+            padding: EdgeInsets.only(bottom: 30.0),
+            color: Colors.lightBlue,
+            child: Platform.isIOS ? iOSpicker() : androidDropdown(),
+          ),
+        ],
+      ),
+    );
   }
 
   CupertinoPicker iOSpicker() {
@@ -44,72 +95,9 @@ class _HomeState extends State<Home> {
                 value: e,
               ))
           .toList(),
-      onChanged: (value) => setState(() => selectedCurrency = value),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    var mediaQuery = MediaQuery.of(context);
-    var rates = getCurrentPrice();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("🤑 Coin Ticker"),
-        centerTitle: true,
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          currenciesList.map((e) => PriceCard(cryptoCurrency: e, fiat: selectedCurrency, price: rates[e],))
-          Container(
-            alignment: Alignment.center,
-            height: mediaQuery.size.height / 7,
-            padding: EdgeInsets.only(bottom: 30.0),
-            color: Colors.lightBlue,
-            child: Platform.isIOS ? iOSpicker() : androidDropdown(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class PriceCard extends StatelessWidget {
-  final String cryptoCurrency;
-  final String price;
-  final String fiat;
-
-  PriceCard({this.cryptoCurrency, this.price, this.fiat});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0.0),
-      child: Card(
-        elevation: 5.0,
-        color: Colors.lightBlueAccent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(10.0),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 28.0,
-            vertical: 15.0,
-          ),
-          child: Text(
-            '1 $cryptoCurrency = $price $fiat',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20.0,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
+      onChanged: (value) => setState(() {
+        selectedCurrency = value;
+      }),
     );
   }
 }
