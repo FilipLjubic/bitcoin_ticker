@@ -1,5 +1,4 @@
 const List<String> currenciesList = [
-  'HRK',
   'AUD',
   'CAD',
   'EUR',
