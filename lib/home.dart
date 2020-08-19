@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'price_card.dart';
+import 'package:loading_animations/loading_animations.dart';
 
 var header = {"X-CoinAPI-Key": DotEnv().env["API_KEY"]};
 
@@ -16,34 +17,34 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   String selectedCurrency = 'USD';
-  List<String> rates = [];
-  List<String> crypto = [];
-  dynamic prices;
+  String cryptoPrice = '?';
 
   Future<dynamic> getCurrentPrice() async {
-    rates.clear();
-    crypto.clear();
-
     http.Response response = await http.get(
         'https://rest.coinapi.io/v1/exchangerate/$selectedCurrency?invert=true&filter_asset_id=${cryptoList.join(',')}',
         headers: header);
 
-    prices = jsonDecode(response.body)['rates'];
+    var prices = jsonDecode(response.body)['rates'];
     return prices;
   }
 
-  void updateUI() {
-    setState(() {
-      if (prices == null) {
-        rates = ["?", "?", "?"];
-        crypto = cryptoList;
-      } else {
-        for (Map<String, dynamic> price in prices) {
-          rates.add(price['rate']);
-          crypto.add(price['asset_id_quote']);
-        }
-      }
-    });
+  List<PriceCard> buildCards(rates) {
+    List<PriceCard> cardList = [];
+
+    for (int i = 0; i < cryptoList.length; i++) {
+      cryptoPrice =
+          rates != null ? (rates[i]['rate'] as double).toStringAsFixed(2) : '?';
+
+      cardList.add(
+        PriceCard(
+          cryptoCurrency:
+              rates != null ? rates[i]['asset_id_quote'] : cryptoList[i],
+          fiat: selectedCurrency,
+          price: cryptoPrice,
+        ),
+      );
+    }
+    return cardList;
   }
 
   @override
@@ -59,10 +60,31 @@ class _HomeState extends State<Home> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          PriceCard(
-            cryptoCurrency: crypto.isEmpty ? cryptoList[0] : crypto[0],
-            fiat: selectedCurrency,
-            price: '?',
+          FutureBuilder(
+            future: getCurrentPrice(),
+            builder: (context, snapshot) {
+              List<Widget> children;
+              if (snapshot.hasData) {
+                children = buildCards(snapshot.data);
+              } else if (snapshot.hasError) {
+                children = buildCards(null);
+              } else {
+                children = [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 150.0),
+                    child: LoadingBouncingGrid.square(
+                      backgroundColor: Colors.lightBlueAccent,
+                      size: 150.0,
+                    ),
+                  ),
+                ];
+              }
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              );
+            },
           ),
           Container(
             alignment: Alignment.center,
@@ -97,6 +119,7 @@ class _HomeState extends State<Home> {
           .toList(),
       onChanged: (value) => setState(() {
         selectedCurrency = value;
+        cryptoPrice = '?';
       }),
     );
   }
